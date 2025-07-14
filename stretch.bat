@@ -1,34 +1,28 @@
 @echo off
-title Esticador de Video v5 - Multi-Arquivos
+title Esticador de Video v9 - VBR Correto
 
 :: =================================================================================
-:: Script v5 (Multi-Arquivo) para esticar vídeos para 1920x1080.
+:: Script v9 (VBR Correto) para esticar vídeos para 1920x1080.
 ::
-:: NOVIDADE:
-:: - Suporte a múltiplos arquivos! Arraste quantos vídeos quiser sobre o script.
-:: - Utiliza um loop (SHIFT/GOTO) para processar cada arquivo sequencialmente.
-:: - Fornece feedback no console para cada arquivo iniciado e concluído.
+:: OBJETIVO: Equilíbrio ideal entre TAMANHO DE ARQUIVO e QUALIDADE.
 ::
-:: ESTRATÉGIA (por arquivo):
-:: - GPU decodifica, CPU redimensiona, GPU codifica (abordagem híbrida rápida).
-:: - Força o esticamento para 16:9 usando os filtros "setsar" e "setdar".
+:: CORREÇÃO:
+:: - Removido o comando "-rc vbr", que não é suportado pelo encoder hevc_amf.
+:: - Para ativar o modo VBR, basta definir o bitrate alvo (-b:v) e o máximo
+::   (-maxrate). O encoder assume o modo VBR automaticamente.
 :: =================================================================================
 
 cls
 
-:: --- VERIFICAÇÃO INICIAL ---
-:: Verifica se o FFmpeg existe
+:: --- VERIFICAÇÕES INICIAIS ---
 where ffmpeg >nul 2>nul
 if %errorlevel% neq 0 (
     echo ERRO: FFmpeg nao foi encontrado!
     pause
     exit
 )
-
-:: Verifica se PELO MENOS UM arquivo foi arrastado
 if "%~1"=="" (
-    echo ERRO: Nenhum arquivo foi fornecido.
-    echo Por favor, arraste um ou mais arquivos de video sobre este script.
+    echo ERRO: Nenhum arquivo foi fornecido. Arraste um ou mais vídeos.
     pause
     exit
 )
@@ -36,8 +30,6 @@ if "%~1"=="" (
 
 :: --- INÍCIO DO LOOP ---
 :ProcessLoop
-
-:: Se a lista de arquivos estiver vazia, pula para o final.
 if "%~1"=="" goto AllDone
 
 echo.
@@ -47,11 +39,11 @@ echo =============================================================
 echo.
 
 
-:: --- O COMANDO DO FFmpeg (o mesmo da v4) ---
-ffmpeg -hwaccel d3d11va -i "%~1" -vf "scale=w=1920:h=1080,setsar=1,setdar=16/9" -c:v hevc_amf -quality speed -c:a copy "%~dpn1_stretched_final%~x1"
+:: --- O COMANDO DO FFmpeg COM VBR CORRETO ---
+ffmpeg -hwaccel d3d11va -i "%~1" -vf "scale=w=1920:h=1080,setsar=1,setdar=16/9" -c:v hevc_amf -b:v 20M -maxrate 30M -quality balanced -c:a copy "%~dpn1_stretched_vbr%~x1"
 
 
-:: --- VERIFICAÇÃO DE SUCESSO PARA O ARQUIVO ATUAL ---
+:: --- VERIFICAÇÃO DE SUCESSO ---
 if %errorlevel% neq 0 (
     echo.
     echo # ERRO: A conversao de "%~nx1" falhou! Pulando para o proximo... #
@@ -62,10 +54,7 @@ if %errorlevel% neq 0 (
 
 
 :: --- CONTROLE DO LOOP ---
-:: Move a lista de arquivos para a esquerda (o arquivo %2 se torna o %1)
 SHIFT
-
-:: Volta para o início do loop para processar o próximo arquivo
 goto ProcessLoop
 
 
